@@ -1,4 +1,7 @@
 // app/api/admin/riders/[id]/approve/route.ts
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
