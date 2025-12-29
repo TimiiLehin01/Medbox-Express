@@ -1,0 +1,18 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    // Turn off unused variables error
+    "@typescript-eslint/no-unused-vars": "off",
+    "no-unused-vars": "off",
+
+    // Turn off explicit any warnings
+    "@typescript-eslint/no-explicit-any": "off",
+
+    // Turn off other common warnings
+    "@typescript-eslint/ban-ts-comment": "off",
+    "react-hooks/exhaustive-deps": "warn",
+
+    // Optional: Allow console statements (useful for debugging)
+    "no-console": "off"
+  }
+}

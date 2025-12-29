@@ -1,26 +1,326 @@
-@import "tailwindcss";
+/* app/globals.css - TAILWIND V3 COMPATIBLE VERSION */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ==================== ANIMATIONS ==================== */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+/* ==================== GRADIENT BACKGROUNDS ==================== */
+.gradient-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.gradient-success {
+  background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+}
+.gradient-danger {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+}
+.gradient-warning {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+.gradient-info {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+}
+
+/* ==================== GLASS MORPHISM ==================== */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.glass-dark {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ==================== CARD EFFECTS ==================== */
+.card-hover {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-hover:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+}
+
+.card-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* ==================== SHIMMER & SKELETON ==================== */
+.shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+.dark .shimmer {
+  background: linear-gradient(90deg, #2a2a2a 25%, #333333 50%, #2a2a2a 75%);
+}
+
+/* ==================== BUTTONS ==================== */
+.btn-primary {
+  @apply bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300;
+}
+.btn-secondary {
+  @apply bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 font-semibold px-6 py-3 rounded-lg shadow hover:shadow-lg border border-gray-200 dark:border-gray-700 transform hover:scale-105 transition-all duration-300;
+}
+.btn-success {
+  @apply bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300;
+}
+.btn-outline {
+  @apply border-2 border-blue-600 text-blue-600 bg-transparent hover:bg-blue-600 hover:text-white font-semibold px-6 py-3 rounded-lg transition-all duration-300;
+}
+
+/* ==================== BADGES ==================== */
+.badge-success {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400;
+}
+.badge-warning {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400;
+}
+.badge-danger {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
+}
+.badge-info {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400;
+}
+.badge-primary {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400;
+}
+
+/* ==================== TEXT GRADIENT ==================== */
+.text-gradient-primary {
+  @apply bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent;
+}
+
+/* ==================== SCROLLBAR ==================== */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ==================== UTILITY ANIMATIONS ==================== */
+.animate-fadeIn {
+  animation: fadeIn 0.8s ease-out;
+}
+.animate-slideUp {
+  animation: slideUp 0.6s ease-out;
+}
+.animate-slideInRight {
+  animation: slideInRight 0.6s ease-out;
+}
+.animate-bounceIn {
+  animation: bounceIn 0.8s ease-out;
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* ==================== FOCUS & ACCESSIBILITY ==================== */
+:focus-visible {
+  @apply outline-none ring-2 ring-blue-600 ring-offset-2;
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+button:focus-visible {
+  @apply ring-2 ring-blue-600 ring-opacity-50 ring-offset-2 outline-none;
+}
+
+/* ==================== LOADING DOTS ==================== */
+.loading-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+.loading-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse-subtle 1.4s ease-in-out infinite;
+}
+.loading-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.loading-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* ==================== ENHANCED CARDS ==================== */
+.premium-card {
+  @apply bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 border border-gray-200 dark:border-gray-700 hover:shadow-2xl transition-all duration-500;
+}
+.premium-card-gradient {
+  @apply rounded-2xl shadow-2xl p-8 text-white relative overflow-hidden;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.premium-card-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    transparent 50%
+  );
+  pointer-events: none;
+}
+
+/* ==================== STATS COUNTER ==================== */
+.stats-card:hover .stats-number {
+  transform: scale(1.15);
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
