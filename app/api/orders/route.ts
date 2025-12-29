@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const { payload } = await jwtVerify(token, secret);
     const userId = payload.userId as string;
 
-    let orders = [];
+    let orders: any[] = [];
 
     if (userRole === "PHARMACY") {
       // Get pharmacy's orders
