@@ -1,11 +1,15 @@
+// app/api/pharmacies/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Await params in Next.js 15
+    const params = await context.params;
+
     const pharmacy = await prisma.pharmacy.findUnique({
       where: { id: params.id },
       include: {

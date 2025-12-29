@@ -1,6 +1,4 @@
 // app/api/products/[id]/route.ts
-// Add this GET method to your existing file (or create if it doesn't exist)
-
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
@@ -8,9 +6,11 @@ import { prisma } from "@/lib/prisma";
 // GET single product
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+
     const product = await prisma.product.findUnique({
       where: { id: params.id },
       include: {
@@ -38,12 +38,14 @@ export async function GET(
   }
 }
 
-// DELETE and PUT methods (add these if you don't have them)
+// DELETE product
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+
     const cookieStore = await cookies();
     const userId = cookieStore.get("auth-token")?.value;
     const userRole = cookieStore.get("user-role")?.value;
@@ -92,11 +94,14 @@ export async function DELETE(
   }
 }
 
+// UPDATE product
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+
     const cookieStore = await cookies();
     const userId = cookieStore.get("auth-token")?.value;
     const userRole = cookieStore.get("user-role")?.value;
