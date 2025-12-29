@@ -1,6 +1,6 @@
 // app/admin/pharmacies/page.tsx
 import { prisma } from "@/lib/prisma";
-import PharmacyApprovalCard from "@/components/admin/PharmacyApprovalCard";
+import PharmacyApprovalCard from "@/components/admin/PharmacyVerifyCard";
 
 export default async function PharmaciesPage() {
   const pharmacies = await prisma.pharmacy.findMany({
