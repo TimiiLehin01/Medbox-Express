@@ -20,21 +20,6 @@ import {
   List,
   Loader2,
 } from "lucide-react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-// Fix Leaflet default marker icons
-if (typeof window !== "undefined") {
-  delete (L.Icon.Default.prototype as any)._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl:
-      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-    iconUrl:
-      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-    shadowUrl:
-      "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-  });
-}
 
 interface Pharmacy {
   id: string;
@@ -68,7 +53,39 @@ export default function NearbyPharmaciesPage() {
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(true);
 
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+
+  // Load Leaflet dynamically on client side only
+  useEffect(() => {
+    const loadLeaflet = async () => {
+      if (typeof window !== "undefined") {
+        const L = (await import("leaflet")).default;
+        // await import("leaflet/dist/leaflet.css");
+        if (!document.querySelector('link[href*="leaflet.css"]')) {
+          const link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.href = "https://unpkg.com/leaflet@1.7.1/dist/leaflet.css";
+          document.head.appendChild(link);
+        }
+
+        // Fix marker icons
+        delete (L.Icon.Default.prototype as any)._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl:
+            "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+          iconUrl:
+            "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+          shadowUrl:
+            "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+        });
+
+        setLeafletLoaded(true);
+      }
+    };
+
+    loadLeaflet();
+  }, []);
 
   useEffect(() => {
     fetchPharmacies();
@@ -79,7 +96,7 @@ export default function NearbyPharmaciesPage() {
   }, [searchQuery, pharmacies, sortBy, showVerifiedOnly]);
 
   useEffect(() => {
-    if (viewMode === "map" && filteredPharmacies.length > 0) {
+    if (viewMode === "map" && filteredPharmacies.length > 0 && leafletLoaded) {
       initializeMap();
     }
     return () => {
@@ -88,7 +105,7 @@ export default function NearbyPharmaciesPage() {
         mapInstanceRef.current = null;
       }
     };
-  }, [viewMode, filteredPharmacies, userLocation]);
+  }, [viewMode, filteredPharmacies, userLocation, leafletLoaded]);
 
   const fetchPharmacies = async () => {
     try {
@@ -136,8 +153,11 @@ export default function NearbyPharmaciesPage() {
     );
   };
 
-  const initializeMap = () => {
-    if (!mapRef.current || mapInstanceRef.current) return;
+  const initializeMap = async () => {
+    if (!mapRef.current || mapInstanceRef.current || !leafletLoaded) return;
+
+    // Import Leaflet dynamically
+    const L = (await import("leaflet")).default;
 
     const center = userLocation
       ? [userLocation.latitude, userLocation.longitude]
