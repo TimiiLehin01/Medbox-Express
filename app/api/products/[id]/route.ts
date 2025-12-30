@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { jwtVerify } from "jose"; // ✅ Added import
 
 // GET single product
 export async function GET(
@@ -50,12 +51,19 @@ export async function DELETE(
     const params = await context.params;
 
     const cookieStore = await cookies();
-    const userId = cookieStore.get("auth-token")?.value;
+    const token = cookieStore.get("auth-token")?.value; // ✅ Changed to token
     const userRole = cookieStore.get("user-role")?.value;
 
-    if (!userId || userRole !== "PHARMACY") {
+    if (!token || userRole !== "PHARMACY") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // ✅ Decode JWT to get userId
+    const secret = new TextEncoder().encode(
+      process.env.JWT_SECRET || "your-secret-key"
+    );
+    const { payload } = await jwtVerify(token, secret);
+    const userId = payload.userId as string;
 
     const pharmacy = await prisma.pharmacy.findUnique({
       where: { userId: userId },
@@ -106,12 +114,19 @@ export async function PUT(
     const params = await context.params;
 
     const cookieStore = await cookies();
-    const userId = cookieStore.get("auth-token")?.value;
+    const token = cookieStore.get("auth-token")?.value; // ✅ Changed to token
     const userRole = cookieStore.get("user-role")?.value;
 
-    if (!userId || userRole !== "PHARMACY") {
+    if (!token || userRole !== "PHARMACY") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // ✅ Decode JWT to get userId
+    const secret = new TextEncoder().encode(
+      process.env.JWT_SECRET || "your-secret-key"
+    );
+    const { payload } = await jwtVerify(token, secret);
+    const userId = payload.userId as string;
 
     const pharmacy = await prisma.pharmacy.findUnique({
       where: { userId: userId },

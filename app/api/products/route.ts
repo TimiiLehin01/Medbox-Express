@@ -1,47 +1,35 @@
+// app/api/products/route.ts
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
+import { jwtVerify } from "jose"; // ✅ Add this import
 
-const productSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-  category: z.string(),
-  price: z.number().positive(),
-  quantity: z.number().int().nonnegative(),
-  expiryDate: z.string().optional(),
-  prescriptionRequired: z.boolean(),
-  imageUrl: z.string().optional(),
-});
-
-// GET all products or search
-export async function GET(req: Request) {
+// GET all products
+export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const search = searchParams.get("search");
-    const category = searchParams.get("category");
     const pharmacyId = searchParams.get("pharmacyId");
+    const category = searchParams.get("category");
+    const search = searchParams.get("search");
 
-    const where: any = {
-      quantity: { gt: 0 },
-    };
+    const where: any = {};
 
-    if (search) {
-      where.name = {
-        contains: search,
-        mode: "insensitive",
-      };
+    if (pharmacyId) {
+      where.pharmacyId = pharmacyId;
     }
 
     if (category) {
       where.category = category;
     }
 
-    if (pharmacyId) {
-      where.pharmacyId = pharmacyId;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ];
     }
 
     const products = await prisma.product.findMany({
@@ -52,12 +40,11 @@ export async function GET(req: Request) {
             id: true,
             name: true,
             verified: true,
+            address: true,
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json(products);
@@ -70,24 +57,32 @@ export async function GET(req: Request) {
   }
 }
 
-// POST create product (pharmacy only)
-export async function POST(req: Request) {
+// POST - Create new product
+export async function POST(req: NextRequest) {
   try {
-    // Get auth from cookies instead of NextAuth
     const cookieStore = await cookies();
-    const userId = cookieStore.get("auth-token")?.value;
+    const token = cookieStore.get("auth-token")?.value; // ✅ Changed to token
     const userRole = cookieStore.get("user-role")?.value;
 
-    if (!userId || userRole !== "PHARMACY") {
+    if (!token || userRole !== "PHARMACY") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const validatedData = productSchema.parse(body);
+    // ✅ Decode JWT to get userId
+    const secret = new TextEncoder().encode(
+      process.env.JWT_SECRET || "your-secret-key"
+    );
+    const { payload } = await jwtVerify(token, secret);
+    const userId = payload.userId as string;
 
+    console.log("🔍 Creating product for userId:", userId); // Debug log
+
+    // Find pharmacy profile
     const pharmacy = await prisma.pharmacy.findUnique({
       where: { userId: userId },
     });
+
+    console.log("🔍 Pharmacy found:", pharmacy); // Debug log
 
     if (!pharmacy) {
       return NextResponse.json(
@@ -96,26 +91,27 @@ export async function POST(req: Request) {
       );
     }
 
+    const body = await req.json();
+
+    // Create product
     const product = await prisma.product.create({
       data: {
-        ...validatedData,
         pharmacyId: pharmacy.id,
-        expiryDate: validatedData.expiryDate
-          ? new Date(validatedData.expiryDate)
-          : null,
+        name: body.name,
+        description: body.description,
+        category: body.category,
+        price: parseFloat(body.price),
+        quantity: parseInt(body.quantity),
+        expiryDate: body.expiryDate ? new Date(body.expiryDate) : null,
+        prescriptionRequired: body.prescriptionRequired || false,
+        imageUrl: body.imageUrl || "",
       },
     });
 
+    console.log("✅ Product created:", product.id);
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Invalid data", details: error.issues },
-        { status: 400 }
-      );
-    }
-
-    console.error("Create product error:", error);
+    console.error("❌ Create product error:", error);
     return NextResponse.json(
       { error: "Failed to create product" },
       { status: 500 }
