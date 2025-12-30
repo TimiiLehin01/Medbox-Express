@@ -53,8 +53,9 @@ export async function GET(
             id: true,
             name: true,
             address: true,
+            latitude: true, // ✅ Added for map
+            longitude: true, // ✅ Added for map
             user: {
-              // ← FIXED: Access phone through user relation
               select: {
                 phone: true,
               },
@@ -129,6 +130,15 @@ export async function GET(
     console.log(
       `✅ Fetched order ${orderId} for ${userRole} (userId: ${userId})`
     );
+
+    // ✅ Log coordinates for debugging
+    console.log(
+      `📍 Pharmacy location: ${order.pharmacy.latitude}, ${order.pharmacy.longitude}`
+    );
+    console.log(
+      `📍 Delivery location: ${order.deliveryLatitude}, ${order.deliveryLongitude}`
+    );
+
     return NextResponse.json(order);
   } catch (error) {
     console.error("❌ Error fetching order:", error);
@@ -206,7 +216,21 @@ export async function PATCH(
       data: { status },
       include: {
         consumer: true,
-        pharmacy: true,
+        pharmacy: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            latitude: true, // ✅ Include in update response too
+            longitude: true, // ✅ Include in update response too
+            user: {
+              select: {
+                name: true,
+                phone: true,
+              },
+            },
+          },
+        },
         rider: true,
         items: {
           include: {
