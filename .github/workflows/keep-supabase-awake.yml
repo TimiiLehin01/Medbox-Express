@@ -1,0 +1,33 @@
+name: Keep Supabase active
+
+on:
+  schedule:
+    # Run once per day at 17:23 UTC. Avoid the busiest top-of-hour schedule.
+    - cron: "23 17 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  database-activity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Perform a read-only database request
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          curl --fail --silent --show-error \
+            --get "$SUPABASE_URL/rest/v1/User" \
+            --data-urlencode "select=id" \
+            --data-urlencode "limit=1" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Accept: application/json" \
+            -o /dev/null
