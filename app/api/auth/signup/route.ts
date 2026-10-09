@@ -19,7 +19,6 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validatedData = signupSchema.parse(body);
 
-    // Check if user already exists
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [{ email: validatedData.email }, { phone: validatedData.phone }],
@@ -29,14 +28,12 @@ export async function POST(req: Request) {
     if (existingUser) {
       return NextResponse.json(
         { error: "User already exists with this email or phone" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(validatedData.password, 10);
 
-    // Create user
     const user = await prisma.user.create({
       data: {
         name: validatedData.name,
@@ -44,11 +41,10 @@ export async function POST(req: Request) {
         phone: validatedData.phone,
         password: hashedPassword,
         role: validatedData.role,
-        status: validatedData.role === "CONSUMER" ? "ACTIVE" : "PENDING",
+        status: "ACTIVE",
       },
     });
 
-    // Create related records based on role
     if (validatedData.role === "PHARMACY") {
       await prisma.pharmacy.create({
         data: {
@@ -57,6 +53,7 @@ export async function POST(req: Request) {
           address: "",
           latitude: 0,
           longitude: 0,
+          verified: true,
         },
       });
     } else if (validatedData.role === "RIDER") {
@@ -64,26 +61,27 @@ export async function POST(req: Request) {
         data: {
           userId: user.id,
           transportType: "",
+          verified: true,
         },
       });
     }
 
     return NextResponse.json(
       { message: "User created successfully", userId: user.id },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid data", details: error.issues },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     console.error("Signup error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

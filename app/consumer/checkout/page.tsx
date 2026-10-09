@@ -21,40 +21,41 @@ interface CartItem {
   pharmacyName: string;
 }
 
+const DELIVERY_FEE_PER_PHARMACY = 500;
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
-  const [locationCaptured, setLocationCaptured] = useState(false);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     deliveryAddress: "",
     deliveryLatitude: null as number | null,
     deliveryLongitude: null as number | null,
     paymentMethod: "online",
     notes: "",
-    prescriptionUrl: "",
   });
 
   useEffect(() => {
-    // Get cart from localStorage or pass it from search page
     const savedCart = localStorage.getItem("cart");
     if (savedCart) {
       setCart(JSON.parse(savedCart));
     } else {
-      // If no cart, redirect back to search
       router.push("/consumer/search");
     }
   }, [router]);
 
   const subtotal = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
-    0
+    0,
   );
-  const deliveryFee = 500;
+  const pharmacyCount = new Set(cart.map((item) => item.pharmacyId)).size;
+  const deliveryFee = DELIVERY_FEE_PER_PHARMACY * pharmacyCount;
   const total = subtotal + deliveryFee;
 
-  const hasPrescriptionItems = cart.some((item) => item.prescriptionRequired);
+  const hasLocation =
+    formData.deliveryLatitude !== null && formData.deliveryLongitude !== null;
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -74,13 +75,11 @@ export default function CheckoutPage() {
           deliveryLatitude: lat,
           deliveryLongitude: lng,
         }));
+        setLocationAccuracy(position.coords.accuracy);
 
-        setLocationCaptured(true);
-
-        // Reverse geocode to get address
         try {
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
           );
           const data = await response.json();
           const address = data.display_name || `${lat}, ${lng}`;
@@ -98,90 +97,74 @@ export default function CheckoutPage() {
       (error) => {
         console.error("Error getting location:", error);
         alert(
-          "Unable to get your location. Please enter manually or check browser permissions."
+          "Unable to get your location. Please enter it manually or check browser permissions.",
         );
         setGettingLocation(false);
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 15000,
         maximumAge: 0,
-      }
+      },
     );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.deliveryLatitude || !formData.deliveryLongitude) {
-      alert("Please capture your delivery location using GPS");
-      return;
-    }
-
-    if (hasPrescriptionItems && !formData.prescriptionUrl) {
-      alert("Please upload a prescription for prescription-required items");
+    if (!hasLocation) {
+      alert("Please capture your delivery location");
       return;
     }
 
     setLoading(true);
+    let redirecting = false;
 
     try {
-      // Group items by pharmacy (in case cart has items from multiple pharmacies)
-      const pharmacyGroups = cart.reduce((groups, item) => {
-        if (!groups[item.pharmacyId]) {
-          groups[item.pharmacyId] = [];
-        }
-        groups[item.pharmacyId].push(item);
-        return groups;
-      }, {} as Record<string, CartItem[]>);
-
-      // Create an order for each pharmacy
-      for (const [pharmacyId, items] of Object.entries(pharmacyGroups)) {
-        const orderData = {
-          pharmacyId,
-          items: items.map((item) => ({
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: cart.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
-            price: item.price,
           })),
           deliveryAddress: formData.deliveryAddress,
           deliveryLatitude: formData.deliveryLatitude,
           deliveryLongitude: formData.deliveryLongitude,
           paymentMethod: formData.paymentMethod,
-          notes: formData.notes,
-          prescriptionUrl: formData.prescriptionUrl || null,
-          subtotal: items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0
-          ),
-          deliveryFee,
-          total:
-            items.reduce((sum, item) => sum + item.price * item.quantity, 0) +
-            deliveryFee,
-        };
+          notes: formData.notes || null,
+        }),
+      });
 
-        const res = await fetch("/api/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(orderData),
-        });
+      const data = await res.json().catch(() => ({}));
 
-        if (!res.ok) {
-          throw new Error("Failed to create order");
-        }
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create order");
       }
 
-      // Clear cart
-      localStorage.removeItem("cart");
+      if (formData.paymentMethod === "online") {
+        if (!data.authorizationUrl) {
+          throw new Error("Could not start payment");
+        }
+        // The cart is cleared after the payment is confirmed
+        redirecting = true;
+        window.location.href = data.authorizationUrl;
+        return;
+      }
 
-      // Show success and redirect
-      alert("Order placed successfully! 🎉");
+      localStorage.removeItem("cart");
+      alert("Order placed. You will pay the rider on delivery.");
       router.push("/consumer/orders");
     } catch (error) {
       console.error("Checkout error:", error);
-      alert("Failed to place order. Please try again.");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to place order. Please try again.",
+      );
     } finally {
-      setLoading(false);
+      if (!redirecting) setLoading(false);
     }
   };
 
@@ -214,13 +197,12 @@ export default function CheckoutPage() {
                   Delivery Location
                 </h2>
                 <div className="space-y-4">
-                  {/* GPS Location Button */}
                   <div>
                     <Button
                       type="button"
                       onClick={getCurrentLocation}
                       disabled={gettingLocation}
-                      variant={locationCaptured ? "outline" : "default"}
+                      variant={hasLocation ? "outline" : "default"}
                       className="w-full"
                     >
                       {gettingLocation ? (
@@ -228,10 +210,10 @@ export default function CheckoutPage() {
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Getting your location...
                         </>
-                      ) : locationCaptured ? (
+                      ) : hasLocation ? (
                         <>
                           <Navigation className="mr-2 h-4 w-4" />
-                          Location Captured ✓
+                          Location Captured. Tap to refresh
                         </>
                       ) : (
                         <>
@@ -241,26 +223,36 @@ export default function CheckoutPage() {
                       )}
                     </Button>
                     <p className="text-xs text-gray-500 mt-2">
-                      We need your GPS location for accurate delivery
+                      We need your location for accurate delivery
                     </p>
                   </div>
 
-                  {/* Show coordinates if captured */}
-                  {locationCaptured &&
-                    formData.deliveryLatitude &&
-                    formData.deliveryLongitude && (
-                      <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                        <p className="text-sm font-semibold text-green-900 mb-1">
-                          📍 Location Captured
+                  {hasLocation && (
+                    <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-sm font-semibold text-green-900 mb-1">
+                        Location captured
+                      </p>
+                      <p className="text-xs text-green-700">
+                        Lat: {formData.deliveryLatitude!.toFixed(6)}, Lng:{" "}
+                        {formData.deliveryLongitude!.toFixed(6)}
+                      </p>
+                      {locationAccuracy !== null && (
+                        <p
+                          className={`text-xs mt-1 ${
+                            locationAccuracy > 100
+                              ? "text-amber-700"
+                              : "text-green-700"
+                          }`}
+                        >
+                          Accurate to about {Math.round(locationAccuracy)} m
+                          {locationAccuracy > 100
+                            ? ". Please check that the address below is right."
+                            : ""}
                         </p>
-                        <p className="text-xs text-green-700">
-                          Lat: {formData.deliveryLatitude.toFixed(6)}, Lng:{" "}
-                          {formData.deliveryLongitude.toFixed(6)}
-                        </p>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                  )}
 
-                  {/* Address Input */}
                   <div>
                     <Label htmlFor="address">Delivery Address *</Label>
                     <Textarea
@@ -278,7 +270,6 @@ export default function CheckoutPage() {
                     />
                   </div>
 
-                  {/* Manual Coordinate Entry (Optional) */}
                   <details className="text-sm">
                     <summary className="cursor-pointer text-gray-600 hover:text-gray-900">
                       Enter coordinates manually (advanced)
@@ -291,12 +282,14 @@ export default function CheckoutPage() {
                           type="number"
                           step="any"
                           placeholder="6.5244"
-                          value={formData.deliveryLatitude || ""}
+                          value={formData.deliveryLatitude ?? ""}
                           onChange={(e) =>
                             setFormData({
                               ...formData,
                               deliveryLatitude:
-                                parseFloat(e.target.value) || null,
+                                e.target.value === ""
+                                  ? null
+                                  : parseFloat(e.target.value),
                             })
                           }
                         />
@@ -308,12 +301,14 @@ export default function CheckoutPage() {
                           type="number"
                           step="any"
                           placeholder="3.3792"
-                          value={formData.deliveryLongitude || ""}
+                          value={formData.deliveryLongitude ?? ""}
                           onChange={(e) =>
                             setFormData({
                               ...formData,
                               deliveryLongitude:
-                                parseFloat(e.target.value) || null,
+                                e.target.value === ""
+                                  ? null
+                                  : parseFloat(e.target.value),
                             })
                           }
                         />
@@ -368,39 +363,6 @@ export default function CheckoutPage() {
               </CardContent>
             </Card>
 
-            {/* Prescription Upload (if needed) */}
-            {hasPrescriptionItems && (
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-4">
-                    Prescription Required
-                  </h2>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Some items in your cart require a prescription. Please
-                    upload it.
-                  </p>
-                  <div>
-                    <Label htmlFor="prescription">
-                      Prescription Image URL *
-                    </Label>
-                    <Input
-                      id="prescription"
-                      type="url"
-                      required
-                      value={formData.prescriptionUrl}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          prescriptionUrl: e.target.value,
-                        })
-                      }
-                      placeholder="https://example.com/prescription.jpg"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Additional Notes */}
             <Card>
               <CardContent className="p-6">
@@ -453,7 +415,12 @@ export default function CheckoutPage() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Delivery Fee</span>
+                    <span>
+                      Delivery Fee
+                      {pharmacyCount > 1
+                        ? ` (${pharmacyCount} pharmacies)`
+                        : ""}
+                    </span>
                     <span className="font-semibold">
                       {formatPrice(deliveryFee)}
                     </span>
@@ -466,23 +433,27 @@ export default function CheckoutPage() {
 
                 <Button
                   type="submit"
-                  disabled={loading || !locationCaptured}
+                  disabled={loading || !hasLocation}
                   className="w-full mt-6"
                   size="lg"
                 >
                   {loading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Placing Order...
+                      {formData.paymentMethod === "online"
+                        ? "Taking you to payment..."
+                        : "Placing Order..."}
                     </>
+                  ) : formData.paymentMethod === "online" ? (
+                    `Pay ${formatPrice(total)}`
                   ) : (
                     "Place Order"
                   )}
                 </Button>
 
-                {!locationCaptured && (
+                {!hasLocation && (
                   <p className="text-xs text-red-600 mt-2 text-center">
-                    Please capture your GPS location first
+                    Please capture your location first
                   </p>
                 )}
               </CardContent>

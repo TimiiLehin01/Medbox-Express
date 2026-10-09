@@ -1,4 +1,3 @@
-// app/api/orders/[id]/route.ts
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -7,10 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
-// GET single order
 export async function GET(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const cookieStore = await cookies();
@@ -21,22 +19,19 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Decode JWT to get userId
     const secret = new TextEncoder().encode(
-      process.env.JWT_SECRET || "your-secret-key"
+      process.env.JWT_SECRET || "your-secret-key",
     );
     const { payload } = await jwtVerify(token, secret);
     const userId = payload.userId as string;
 
-    // Await params in Next.js 15
     const params = await context.params;
     const orderId = params.id;
 
     console.log(
-      `🔍 Fetching order ${orderId} for user ${userId} (${userRole})`
+      `🔍 Fetching order ${orderId} for user ${userId} (${userRole})`,
     );
 
-    // Fetch the order with all relations
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -53,8 +48,8 @@ export async function GET(
             id: true,
             name: true,
             address: true,
-            latitude: true, // ✅ Added for map
-            longitude: true, // ✅ Added for map
+            latitude: true,
+            longitude: true,
             user: {
               select: {
                 phone: true,
@@ -82,21 +77,20 @@ export async function GET(
     });
 
     if (!order) {
-      console.log(`❌ Order ${orderId} not found in database`);
+      console.log(`Order ${orderId} not found in database`);
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
     console.log(
-      `📦 Order found - consumerId: ${order.consumerId}, checking authorization...`
+      ` Order found - consumerId: ${order.consumerId}, checking authorization...`,
     );
 
-    // Authorization check based on role
     let authorized = false;
 
     if (userRole === "CONSUMER") {
       authorized = order.consumerId === userId;
       console.log(
-        `Consumer check: ${order.consumerId} === ${userId} = ${authorized}`
+        `Consumer check: ${order.consumerId} === ${userId} = ${authorized}`,
       );
     } else if (userRole === "PHARMACY") {
       const pharmacy = await prisma.pharmacy.findUnique({
@@ -104,7 +98,7 @@ export async function GET(
       });
       authorized = pharmacy?.id === order.pharmacyId;
       console.log(
-        `Pharmacy check: ${pharmacy?.id} === ${order.pharmacyId} = ${authorized}`
+        `Pharmacy check: ${pharmacy?.id} === ${order.pharmacyId} = ${authorized}`,
       );
     } else if (userRole === "RIDER") {
       const rider = await prisma.rider.findUnique({
@@ -112,7 +106,7 @@ export async function GET(
       });
       authorized = rider?.id === order.riderId;
       console.log(
-        `Rider check: ${rider?.id} === ${order.riderId} = ${authorized}`
+        `Rider check: ${rider?.id} === ${order.riderId} = ${authorized}`,
       );
     } else if (userRole === "ADMIN") {
       authorized = true;
@@ -120,31 +114,31 @@ export async function GET(
     }
 
     if (!authorized) {
-      console.log(`❌ User not authorized to view order ${orderId}`);
+      console.log(` User not authorized to view order ${orderId}`);
       return NextResponse.json(
         { error: "Not authorized to view this order" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     console.log(
-      `✅ Fetched order ${orderId} for ${userRole} (userId: ${userId})`
+      `✅ Fetched order ${orderId} for ${userRole} (userId: ${userId})`,
     );
 
     // ✅ Log coordinates for debugging
     console.log(
-      `📍 Pharmacy location: ${order.pharmacy.latitude}, ${order.pharmacy.longitude}`
+      `📍 Pharmacy location: ${order.pharmacy.latitude}, ${order.pharmacy.longitude}`,
     );
     console.log(
-      `📍 Delivery location: ${order.deliveryLatitude}, ${order.deliveryLongitude}`
+      `📍 Delivery location: ${order.deliveryLatitude}, ${order.deliveryLongitude}`,
     );
 
     return NextResponse.json(order);
   } catch (error) {
-    console.error("❌ Error fetching order:", error);
+    console.error(" Error fetching order:", error);
     return NextResponse.json(
       { error: "Failed to fetch order" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -152,7 +146,7 @@ export async function GET(
 // PATCH - Update order status
 export async function PATCH(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const cookieStore = await cookies();
@@ -163,21 +157,18 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Decode JWT to get userId
     const secret = new TextEncoder().encode(
-      process.env.JWT_SECRET || "your-secret-key"
+      process.env.JWT_SECRET || "your-secret-key",
     );
     const { payload } = await jwtVerify(token, secret);
     const userId = payload.userId as string;
 
-    // Await params in Next.js 15
     const params = await context.params;
     const orderId = params.id;
 
     const body = await req.json();
     const { status } = body;
 
-    // Get the order first to check authorization
     const order = await prisma.order.findUnique({
       where: { id: orderId },
     });
@@ -186,7 +177,6 @@ export async function PATCH(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    // Check if user is authorized to update this order
     let authorized = false;
 
     if (userRole === "PHARMACY") {
@@ -206,11 +196,10 @@ export async function PATCH(
     if (!authorized) {
       return NextResponse.json(
         { error: "Not authorized to update this order" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
-    // Update the order
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: { status },
@@ -221,8 +210,8 @@ export async function PATCH(
             id: true,
             name: true,
             address: true,
-            latitude: true, // ✅ Include in update response too
-            longitude: true, // ✅ Include in update response too
+            latitude: true,
+            longitude: true,
             user: {
               select: {
                 name: true,
@@ -246,7 +235,7 @@ export async function PATCH(
     console.error("❌ Error updating order:", error);
     return NextResponse.json(
       { error: "Failed to update order" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

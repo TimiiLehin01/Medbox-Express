@@ -1,4 +1,3 @@
-// app/api/admin/pharmacies/route.ts
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -33,7 +32,7 @@ export async function GET() {
     console.error("Fetch pharmacies error:", error);
     return NextResponse.json(
       { error: "Failed to fetch pharmacies" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

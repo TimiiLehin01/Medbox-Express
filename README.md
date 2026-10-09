@@ -1,36 +1,120 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏥 MedBox Express
 
-## Getting Started
+MedBox Express is a role-based healthcare logistics web application that connects **Consumers, Pharmacies, and Riders** in one seamless platform.
 
-First, run the development server:
+It enables users to register under different roles, interact with location-based services, and ensures trust through an **admin approval system**.
+
+---
+
+## Features
+
+### Multi-Role Registration
+
+Users can register as:
+
+- **Consumer** – Order medications and healthcare products
+- **Pharmacy** – List and manage available drugs
+- **Rider** – Handle delivery logistics
+
+---
+
+### Admin Approval System
+
+- All new users are marked as **pending**
+- An **admin dashboard** allows approval or rejection
+- Only approved users can fully access the platform
+
+---
+
+### Location & Map Integration
+
+- Users provide **coordinates during registration**
+- Enables **location-based matching**
+- Supports delivery routing between pharmacies and consumers
+
+---
+
+### Delivery Workflow
+
+- Consumers place orders
+- Pharmacies prepare orders
+- Riders handle delivery using mapped locations
+
+---
+
+## Demo Access
+
+To explore the app without going through the approval process, use the demo accounts on the website
+
+## Tech Stack
+
+- **Frontend:** Next.js
+- **Styling:** Tailwind (if used)
+- **State Management:** Supabase
+- **Maps:** Google Maps
+
+---
+
+## Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/TimiiLehin01/medbox-express.git
+cd medbox-express
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How It Works
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. User registers as Consumer, Pharmacy, or Rider
+2. Account status is set to **Pending**
+3. Admin reviews and approves users
+4. Approved users gain full access to platform features
+5. Orders and deliveries are handled through role interactions
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Purpose
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+This project demonstrates:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Role-based access control
+- Real-world workflow design
+- Location-aware applications
+- Admin moderation systems
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Future Improvements
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Real-time order tracking
+- Payment integration
+- Notifications system
+- Backend/database integration for scalability
+
+---
+
+## Author
+
+**Timilehin**
+Frontend Developer passionate about building real-world applications.
+
+---
+
+## ⭐️ Show Your Support
+
+If you like this project, feel free to **star the repo** and share feedback!

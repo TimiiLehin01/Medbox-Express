@@ -1,4 +1,3 @@
-// app/admin/pharmacies/page.tsx
 import { prisma } from "@/lib/prisma";
 import PharmacyApprovalCard from "@/components/admin/PharmacyVerifyCard";
 

@@ -1,4 +1,3 @@
-// app/api/admin/users/route.ts
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -8,7 +7,6 @@ import { cookies } from "next/headers";
 
 export async function GET(req: NextRequest) {
   try {
-    // Verify admin authentication
     const cookieStore = await cookies();
     const userRole = cookieStore.get("user-role")?.value;
 
@@ -16,7 +14,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // Fetch all users with their pharmacy and rider info
     const users = await prisma.user.findMany({
       include: {
         pharmacy: true,
@@ -27,14 +24,14 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    console.log("Fetched users:", users.length); // Debug log
+    console.log("Fetched users:", users.length);
 
     return NextResponse.json(users);
   } catch (error) {
     console.error("Error fetching users:", error);
     return NextResponse.json(
       { error: "Failed to fetch users" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

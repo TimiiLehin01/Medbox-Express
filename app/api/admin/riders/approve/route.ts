@@ -1,4 +1,3 @@
-// app/api/admin/riders/approve/route.ts
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -46,7 +45,7 @@ export async function POST(req: NextRequest) {
     console.error("Error approving rider:", error);
     return NextResponse.json(
       { error: "Failed to approve rider" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,4 +1,3 @@
-// app/admin/users/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -98,7 +97,6 @@ export default function AdminUsersPage() {
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
       <h1 className="text-3xl font-bold mb-6">Manage Users</h1>
 
-      {/* Filter Tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">
         <button
           onClick={() => setSelectedRole("ALL")}
@@ -152,7 +150,6 @@ export default function AdminUsersPage() {
         </button>
       </div>
 
-      {/* Users Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -214,7 +211,7 @@ export default function AdminUsersPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeColor(
-                          user.role
+                          user.role,
                         )}`}
                       >
                         {user.role}
@@ -223,7 +220,7 @@ export default function AdminUsersPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(
-                          user.status
+                          user.status,
                         )}`}
                       >
                         {user.status}
@@ -250,7 +247,6 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Summary */}
       <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg shadow">
           <p className="text-sm text-gray-600">Total Users</p>

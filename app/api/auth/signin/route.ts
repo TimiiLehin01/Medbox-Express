@@ -2,66 +2,154 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { SignJWT } from "jose"; // Add this import
+import { SignJWT } from "jose";
 
 const signinSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
+  email: z
+    .string()
+    .trim()
+    .email("Please enter a valid email address")
+    .transform((email) => email.toLowerCase()),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    console.log("Signin attempt for:", body.email);
+    // Ensure the request contains JSON.
+    const contentType = req.headers.get("content-type");
 
-    const validatedData = signinSchema.parse(body);
-
-    const user = await prisma.user.findUnique({
-      where: { email: validatedData.email },
-    });
-
-    if (!user || !user.password) {
+    if (!contentType?.includes("application/json")) {
       return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 }
+        { error: "Content-Type must be application/json" },
+        { status: 415 },
       );
     }
 
-    const isValid = await bcrypt.compare(validatedData.password, user.password);
+    // Parse request body safely.
+    let body: unknown;
+
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON request body" },
+        { status: 400 },
+      );
+    }
+
+    // Validate input.
+    const validatedData = signinSchema.safeParse(body);
+
+    if (!validatedData.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid input",
+          details: validatedData.error.issues.map((issue) => ({
+            field: issue.path.join("."),
+            message: issue.message,
+          })),
+        },
+        { status: 400 },
+      );
+    }
+
+    const { email, password } = validatedData.data;
+
+    // Confirm the JWT secret is configured.
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!jwtSecret || jwtSecret.length < 32) {
+      console.error(
+        "Signin configuration error: JWT_SECRET is missing or too short.",
+      );
+
+      return NextResponse.json(
+        { error: "Authentication service is not configured correctly" },
+        { status: 500 },
+      );
+    }
+
+    // Look up the account.
+    let user;
+
+    try {
+      user = await prisma.user.findUnique({
+        where: { email },
+      });
+    } catch (error) {
+      console.error("Signin database lookup failed:", error);
+
+      return NextResponse.json(
+        { error: "Unable to authenticate at this time" },
+        { status: 503 },
+      );
+    }
+
+    // Use the same public response for an unknown email or wrong password.
+    if (!user || !user.password) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 },
+      );
+    }
+
+    // Verify the password.
+    let isValid: boolean;
+
+    try {
+      isValid = await bcrypt.compare(password, user.password);
+    } catch (error) {
+      console.error("Signin password verification failed:", error);
+
+      return NextResponse.json(
+        { error: "Unable to authenticate at this time" },
+        { status: 500 },
+      );
+    }
 
     if (!isValid) {
       return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 }
+        { error: "Invalid email or password" },
+        { status: 401 },
       );
     }
 
+    // Prevent blocked accounts from signing in.
     if (user.status === "BLOCKED") {
       return NextResponse.json(
-        { error: "Account is blocked" },
-        { status: 403 }
+        { error: "Your account has been blocked. Please contact support." },
+        { status: 403 },
       );
     }
 
-    // Create JWT token
-    const secret = new TextEncoder().encode(
-      process.env.JWT_SECRET || "your-secret-key"
-    );
+    // Generate the authentication token.
+    let token: string;
 
-    const token = await new SignJWT({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    })
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setExpirationTime("7d")
-      .sign(secret);
+    try {
+      const secret = new TextEncoder().encode(jwtSecret);
 
+      token = await new SignJWT({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      })
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime("7d")
+        .sign(secret);
+    } catch (error) {
+      console.error("Signin JWT generation failed:", error);
+
+      return NextResponse.json(
+        { error: "Unable to complete sign-in at this time" },
+        { status: 500 },
+      );
+    }
+
+    // Return the authenticated user and set HTTP-only cookies.
     const response = NextResponse.json(
       {
         message: "Signin successful",
@@ -72,40 +160,40 @@ export async function POST(req: Request) {
           role: user.role,
         },
       },
-      { status: 200 }
+      { status: 200 },
     );
 
-    // Set JWT token (not user.id!)
-    response.cookies.set("auth-token", token, {
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
+      sameSite: "lax" as const,
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    };
 
-    response.cookies.set("user-role", user.role, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
+    response.cookies.set("auth-token", token, cookieOptions);
 
-    console.log("✅ Signin successful for:", user.email, "role:", user.role);
+    response.cookies.set("user-role", user.role, cookieOptions);
+
+    console.info("Signin successful:", {
+      userId: user.id,
+      role: user.role,
+    });
 
     return response;
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      console.error("Validation error:", error.issues);
-      return NextResponse.json(
-        { error: "Invalid data", details: error.issues },
-        { status: 400 }
-      );
-    }
+    console.error("Unexpected signin route error:", {
+      name: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message : "Unknown server error",
+      stack:
+        process.env.NODE_ENV === "development" && error instanceof Error
+          ? error.stack
+          : undefined,
+    });
 
-    console.error("❌ Signin error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: "An unexpected error occurred. Please try again." },
+      { status: 500 },
     );
   }
 }

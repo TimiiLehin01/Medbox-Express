@@ -4,11 +4,10 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { jwtVerify } from "jose"; // Add this import
+import { jwtVerify } from "jose";
 
 export async function GET(req: Request) {
   try {
-    // Get auth from cookies
     const cookieStore = await cookies();
     const token = cookieStore.get("auth-token")?.value;
     const userRole = cookieStore.get("user-role")?.value;
@@ -17,9 +16,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Decode JWT to get userId (optional - just for validation)
     const secret = new TextEncoder().encode(
-      process.env.JWT_SECRET || "your-secret-key"
+      process.env.JWT_SECRET || "your-secret-key",
     );
     const { payload } = await jwtVerify(token, secret);
     const userId = payload.userId as string;
@@ -57,14 +55,14 @@ export async function GET(req: Request) {
       totalRevenue: totalRevenue._sum.total || 0,
     };
 
-    console.log("✅ Admin stats:", stats);
+    console.log(" Admin stats:", stats);
 
     return NextResponse.json(stats);
   } catch (error) {
-    console.error("❌ Stats error:", error);
+    console.error("Stats error:", error);
     return NextResponse.json(
       { error: "Failed to fetch stats" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

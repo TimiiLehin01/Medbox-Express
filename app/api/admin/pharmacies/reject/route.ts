@@ -1,4 +1,3 @@
-// app/api/admin/pharmacies/reject/route.ts
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -20,7 +19,7 @@ export async function POST(req: NextRequest) {
     if (!pharmacyId || !reason) {
       return NextResponse.json(
         { error: "Pharmacy ID and reason required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -47,7 +46,7 @@ export async function POST(req: NextRequest) {
     console.error("Error rejecting pharmacy:", error);
     return NextResponse.json(
       { error: "Failed to reject pharmacy" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

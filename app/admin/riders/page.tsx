@@ -1,4 +1,3 @@
-// app/admin/riders/page.tsx
 import { prisma } from "@/lib/prisma";
 import RiderApprovalCard from "@/components/admin/RiderVerifyCard";
 

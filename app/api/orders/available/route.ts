@@ -1,4 +1,3 @@
-// app/api/orders/available/route.ts
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -17,14 +16,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Decode JWT to get userId
     const secret = new TextEncoder().encode(
-      process.env.JWT_SECRET || "your-secret-key"
+      process.env.JWT_SECRET || "your-secret-key",
     );
     const { payload } = await jwtVerify(token, secret);
     const userId = payload.userId as string;
 
-    // Get rider info
     const rider = await prisma.rider.findUnique({
       where: { userId: userId },
     });
@@ -33,7 +30,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Rider not found" }, { status: 404 });
     }
 
-    // Fetch orders that are ready for pickup and don't have a rider assigned
     const orders = await prisma.order.findMany({
       where: {
         status: "READY",
@@ -56,7 +52,6 @@ export async function GET(req: NextRequest) {
             latitude: true,
             longitude: true,
             user: {
-              // ← FIXED: Access phone through user relation
               select: {
                 phone: true,
               },
@@ -80,7 +75,6 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Calculate distance to each pharmacy if rider location is available
     const ordersWithDistance = orders.map((order) => {
       let distance = 0;
 
@@ -89,7 +83,7 @@ export async function GET(req: NextRequest) {
           rider.latitude,
           rider.longitude,
           order.pharmacy.latitude,
-          order.pharmacy.longitude
+          order.pharmacy.longitude,
         );
       }
 
@@ -99,10 +93,9 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Sort by distance (closest first) if we have location data
     if (rider.latitude && rider.longitude) {
       ordersWithDistance.sort(
-        (a, b) => a.distanceToPharmacy - b.distanceToPharmacy
+        (a, b) => a.distanceToPharmacy - b.distanceToPharmacy,
       );
     }
 
@@ -111,19 +104,18 @@ export async function GET(req: NextRequest) {
     console.error("Error fetching available orders:", error);
     return NextResponse.json(
       { error: "Failed to fetch orders" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
-// Haversine formula to calculate distance between two coordinates
 function calculateDistance(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number {
-  const R = 6371; // Earth's radius in km
+  const R = 6371;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   const a =

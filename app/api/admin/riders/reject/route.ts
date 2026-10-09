@@ -1,4 +1,3 @@
-// app/api/admin/riders/reject/route.ts
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -20,7 +19,7 @@ export async function POST(req: NextRequest) {
     if (!riderId || !reason) {
       return NextResponse.json(
         { error: "Rider ID and reason required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -47,7 +46,7 @@ export async function POST(req: NextRequest) {
     console.error("Error rejecting rider:", error);
     return NextResponse.json(
       { error: "Failed to reject rider" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

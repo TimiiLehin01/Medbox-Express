@@ -1,4 +1,3 @@
-// app/api/admin/riders/[id]/approve/route.ts
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -8,13 +7,11 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(
   req: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
-    // Await params in Next.js 15
     const params = await context.params;
 
-    // Get auth from cookies instead of NextAuth
     const cookieStore = await cookies();
     const userId = cookieStore.get("auth-token")?.value;
     const userRole = cookieStore.get("user-role")?.value;
@@ -40,7 +37,7 @@ export async function POST(
     console.error("Verify rider error:", error);
     return NextResponse.json(
       { error: "Failed to verify rider" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

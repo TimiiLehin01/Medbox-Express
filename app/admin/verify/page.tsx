@@ -1,4 +1,3 @@
-// app/admin/verify/page.tsx
 import { prisma } from "@/lib/prisma";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Building2, Bike } from "lucide-react";
@@ -6,7 +5,6 @@ import PharmacyVerifyCard from "@/components/admin/PharmacyVerifyCard";
 import RiderVerifyCard from "@/components/admin/RiderVerifyCard";
 
 export default async function VerifyPage() {
-  // Fetch pending pharmacies and riders directly from database
   const [pharmacies, riders] = await Promise.all([
     prisma.pharmacy.findMany({
       where: {
@@ -54,7 +52,6 @@ export default async function VerifyPage() {
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
       <h1 className="text-3xl font-bold mb-6">Verify Users</h1>
 
-      {/* Pending Pharmacies */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -77,7 +74,6 @@ export default async function VerifyPage() {
         </CardContent>
       </Card>
 
-      {/* Pending Riders */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
