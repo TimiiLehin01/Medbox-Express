@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+import { getJwtSecret, getVerifiedRole } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
@@ -9,15 +10,13 @@ export async function GET() {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("auth-token")?.value;
-    const userRole = cookieStore.get("user-role")?.value;
+    const userRole = (await getVerifiedRole());
 
     if (!token) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const secret = new TextEncoder().encode(
-      process.env.JWT_SECRET || "your-secret-key",
-    );
+    const secret = getJwtSecret();
     const { payload } = await jwtVerify(token, secret);
     const userId = payload.userId as string;
 

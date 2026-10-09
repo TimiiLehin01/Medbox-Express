@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/loading-spinner";
+import { calculateDistance, formatClock, isOpenNow } from "@/lib/utils";
 import {
   MapPin,
   Search,
@@ -38,6 +39,17 @@ interface Pharmacy {
   distance?: number;
 }
 
+interface OtherPlace {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  phone: string | null;
+  openingHours: string | null;
+  distance: number;
+}
+
 export default function NearbyPharmaciesPage() {
   const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
   const [filteredPharmacies, setFilteredPharmacies] = useState<Pharmacy[]>([]);
@@ -51,6 +63,11 @@ export default function NearbyPharmaciesPage() {
   const [sortBy, setSortBy] = useState<"distance" | "name">("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(true);
+
+  // Pharmacies from OpenStreetMap that are not on MedBox (information only)
+  const [otherPlaces, setOtherPlaces] = useState<OtherPlace[]>([]);
+  const [otherLoading, setOtherLoading] = useState(false);
+  const [otherUnavailable, setOtherUnavailable] = useState(false);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -93,7 +110,47 @@ export default function NearbyPharmaciesPage() {
 
   useEffect(() => {
     filterPharmacies();
-  }, [searchQuery, pharmacies, sortBy, showVerifiedOnly]);
+  }, [searchQuery, pharmacies, sortBy, showVerifiedOnly, userLocation]);
+
+  // If the visitor already allowed location for this site, use it straight away.
+  useEffect(() => {
+    if (!navigator.geolocation || !navigator.permissions) return;
+    navigator.permissions
+      .query({ name: "geolocation" })
+      .then((result) => {
+        if (result.state === "granted") getCurrentLocation();
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Look up non-MedBox pharmacies once we know where the visitor is.
+  useEffect(() => {
+    if (!userLocation) return;
+    let cancelled = false;
+    setOtherLoading(true);
+    setOtherUnavailable(false);
+
+    fetch(
+      `/api/pharmacies/discover?latitude=${userLocation.latitude}&longitude=${userLocation.longitude}&radius=5`,
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        setOtherPlaces(data.pharmacies ?? []);
+        setOtherUnavailable(Boolean(data.unavailable));
+      })
+      .catch(() => {
+        if (!cancelled) setOtherUnavailable(true);
+      })
+      .finally(() => {
+        if (!cancelled) setOtherLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userLocation]);
 
   useEffect(() => {
     if (viewMode === "map" && filteredPharmacies.length > 0 && leafletLoaded) {
@@ -135,7 +192,7 @@ export default function NearbyPharmaciesPage() {
           longitude: position.coords.longitude,
         };
         setUserLocation(location);
-        calculateDistances(location);
+        setSortBy("distance");
         setGettingLocation(false);
       },
       (error) => {
@@ -190,7 +247,7 @@ export default function NearbyPharmaciesPage() {
 
     // Add pharmacy markers
     filteredPharmacies.forEach((pharmacy) => {
-      const isOpen = isPharmacyOpen(pharmacy.openTime, pharmacy.closeTime);
+      const isOpen = isOpenNow(pharmacy.openTime, pharmacy.closeTime);
       const color = pharmacy.verified ? "#10b981" : "#6b7280";
 
       const pharmacyIcon = L.divIcon({
@@ -259,56 +316,20 @@ export default function NearbyPharmaciesPage() {
     mapInstanceRef.current = map;
   };
 
-  const calculateDistances = (location: {
-    latitude: number;
-    longitude: number;
-  }) => {
-    const pharmaciesWithDistance = pharmacies.map((pharmacy) => ({
-      ...pharmacy,
-      distance: calculateDistance(
-        location.latitude,
-        location.longitude,
-        pharmacy.latitude,
-        pharmacy.longitude
-      ),
-    }));
-
-    pharmaciesWithDistance.sort(
-      (a, b) => (a.distance || 0) - (b.distance || 0)
-    );
-    setPharmacies(pharmaciesWithDistance);
-    setFilteredPharmacies(
-      pharmaciesWithDistance.filter((p) =>
-        showVerifiedOnly ? p.verified : true
-      )
-    );
-  };
-
-  const calculateDistance = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ): number => {
-    const R = 6371;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) *
-        Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const toRad = (degrees: number): number => {
-    return degrees * (Math.PI / 180);
-  };
-
   const filterPharmacies = () => {
-    let filtered = [...pharmacies];
+    let filtered = pharmacies.map((p) =>
+      userLocation
+        ? {
+            ...p,
+            distance: calculateDistance(
+              userLocation.latitude,
+              userLocation.longitude,
+              p.latitude,
+              p.longitude,
+            ),
+          }
+        : p,
+    );
 
     if (showVerifiedOnly) {
       filtered = filtered.filter((p) => p.verified);
@@ -329,24 +350,6 @@ export default function NearbyPharmaciesPage() {
     }
 
     setFilteredPharmacies(filtered);
-  };
-
-  const isPharmacyOpen = (
-    openTime: string | null,
-    closeTime: string | null
-  ) => {
-    if (!openTime || !closeTime) return null;
-
-    const now = new Date();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-
-    const [openHour, openMin] = openTime.split(":").map(Number);
-    const [closeHour, closeMin] = closeTime.split(":").map(Number);
-
-    const openMinutes = openHour * 60 + openMin;
-    const closeMinutes = closeHour * 60 + closeMin;
-
-    return currentTime >= openMinutes && currentTime <= closeMinutes;
   };
 
   if (loading) {
@@ -469,6 +472,12 @@ export default function NearbyPharmaciesPage() {
           {filteredPharmacies.length === 1 ? "pharmacy" : "pharmacies"}
           {userLocation && " near you"}
         </p>
+        {!userLocation && (
+          <p className="text-xs text-gray-500 mt-1">
+            Tap &quot;Use My Location&quot; to see how far each pharmacy is and
+            to find other pharmacies around you.
+          </p>
+        )}
       </div>
 
       {/* Map View */}
@@ -506,7 +515,7 @@ export default function NearbyPharmaciesPage() {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredPharmacies.map((pharmacy) => {
-                const isOpen = isPharmacyOpen(
+                const isOpen = isOpenNow(
                   pharmacy.openTime,
                   pharmacy.closeTime
                 );
@@ -554,7 +563,7 @@ export default function NearbyPharmaciesPage() {
                           <Clock className="h-4 w-4 text-gray-500" />
                           <div className="flex items-center gap-2">
                             <p className="text-sm text-gray-600">
-                              {pharmacy.openTime} - {pharmacy.closeTime}
+                              {formatClock(pharmacy.openTime)} - {formatClock(pharmacy.closeTime)}
                             </p>
                             {isOpen !== null && (
                               <Badge
@@ -614,6 +623,98 @@ export default function NearbyPharmaciesPage() {
             </div>
           )}
         </>
+      )}
+      {/* Other pharmacies nearby (not on MedBox) */}
+      {viewMode === "list" && userLocation && (
+        <div className="mt-12">
+          <h2 className="text-xl font-bold mb-1">Other pharmacies near you</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            These pharmacies are not on MedBox Express yet, so you cannot order
+            from them here. You can still call them or get directions.
+          </p>
+
+          {otherLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Looking for pharmacies around you...
+            </div>
+          ) : otherUnavailable ? (
+            <p className="text-sm text-gray-500">
+              Could not load other pharmacies right now.
+            </p>
+          ) : otherPlaces.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No other pharmacies found within 5 km.
+            </p>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {otherPlaces.map((place) => (
+                <Card key={place.id} className="border-dashed">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="font-semibold">{place.name}</h3>
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        Not on MedBox yet
+                      </Badge>
+                    </div>
+
+                    {place.address && (
+                      <div className="flex items-start gap-2 mb-2">
+                        <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-gray-600">{place.address}</p>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 mb-2">
+                      <Navigation className="h-4 w-4 text-blue-600" />
+                      <p className="text-sm font-semibold text-blue-600">
+                        {place.distance.toFixed(1)} km away
+                      </p>
+                    </div>
+
+                    {place.openingHours && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="h-4 w-4 text-gray-500" />
+                        <p className="text-sm text-gray-600">
+                          {place.openingHours}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 mt-4">
+                      {place.phone && (
+                        <a href={`tel:${place.phone}`} className="flex-1">
+                          <Button variant="outline" size="sm" className="w-full">
+                            <Phone className="h-4 w-4 mr-2" />
+                            Call
+                          </Button>
+                        </a>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() =>
+                          window.open(
+                            `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`,
+                            "_blank",
+                          )
+                        }
+                      >
+                        <Navigation className="h-4 w-4 mr-2" />
+                        Directions
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          <p className="text-xs text-gray-400 mt-4">
+            Pharmacy locations from OpenStreetMap contributors.
+          </p>
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -31,16 +31,41 @@ export default function SignInPage() {
     password: "",
   });
 
-  // Reusable login logic for both form and demo buttons
-  const executeLogin = async (email: string, password: string) => {
+  const [demoRoles, setDemoRoles] = useState<string[]>([]);
+
+  // Ask the server which demo accounts (if any) are enabled. Nothing about
+  // the accounts lives in the browser.
+  useEffect(() => {
+    fetch("/api/auth/demo")
+      .then((r) => r.json())
+      .then((d) => setDemoRoles(d.enabled ? d.roles : []))
+      .catch(() => setDemoRoles([]));
+  }, []);
+
+  // Shared post-login handling for the form and the demo buttons
+  const finishLogin = (user: { name: string; role: string }) => {
+    localStorage.setItem("user-name", user.name);
+    localStorage.setItem("user-role", user.role);
+
+    const redirectMap: Record<string, string> = {
+      CONSUMER: "/consumer",
+      PHARMACY: "/pharmacy",
+      RIDER: "/rider",
+      ADMIN: "/admin",
+    };
+
+    router.push(redirectMap[user.role] || "/");
+  };
+
+  const submitLogin = async (url: string, payload: Record<string, string>) => {
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch("/api/auth/signin", {
+      const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -51,22 +76,18 @@ export default function SignInPage() {
         return;
       }
 
-      localStorage.setItem("user-name", data.user.name);
-      localStorage.setItem("user-role", data.user.role);
-
-      const redirectMap: Record<string, string> = {
-        CONSUMER: "/consumer",
-        PHARMACY: "/pharmacy",
-        RIDER: "/rider",
-        ADMIN: "/admin",
-      };
-
-      router.push(redirectMap[data.user.role] || "/");
-    } catch (error) {
+      finishLogin(data.user);
+    } catch {
       setError("An error occurred. Please try again.");
       setLoading(false);
     }
   };
+
+  const executeLogin = (email: string, password: string) =>
+    submitLogin("/api/auth/signin", { email, password });
+
+  const executeDemo = (role: string) =>
+    submitLogin("/api/auth/demo", { role });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,7 +129,15 @@ export default function SignInPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-xs text-blue-600 font-medium hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"
@@ -149,59 +178,73 @@ export default function SignInPage() {
             </Link>
           </div>
 
-          {/* --- PORTFOLIO DEMO SECTION --- */}
-          <div className="w-full pt-6 border-t border-gray-100">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center mb-4">
-              Quick Demo Access
-            </p>
-            <div className="grid grid-cols-4 gap-2">
-              <button
-                onClick={() =>
-                  executeLogin("admin@medbox.com", "MedboxDemo123!")
-                }
-                className="flex flex-col items-center justify-center p-2 rounded-lg border border-gray-100 bg-gray-50/50 hover:bg-blue-50 hover:border-blue-200 transition-all group"
+          {/* --- PORTFOLIO DEMO SECTION (only when the server enables it) --- */}
+          {demoRoles.length > 0 && (
+            <div className="w-full pt-6 border-t border-gray-100">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center mb-4">
+                Quick Demo Access
+              </p>
+              <div
+                className="grid gap-2"
+                style={{
+                  gridTemplateColumns: `repeat(${demoRoles.length}, minmax(0, 1fr))`,
+                }}
               >
-                <ShieldCheck className="h-5 w-5 text-gray-400 group-hover:text-blue-600 mb-1" />
-                <span className="text-[10px] font-medium text-gray-600">
-                  Admin
-                </span>
-              </button>
-
-              <button
-                onClick={() =>
-                  executeLogin("miraclebaba07@gmail.com", "Miracle123")
-                }
-                className="flex flex-col items-center justify-center p-2 rounded-lg border border-gray-100 bg-gray-50/50 hover:bg-emerald-50 hover:border-emerald-200 transition-all group"
-              >
-                <Stethoscope className="h-5 w-5 text-gray-400 group-hover:text-emerald-600 mb-1" />
-                <span className="text-[10px] font-medium text-gray-600">
-                  Pharmacy
-                </span>
-              </button>
-              <button
-                onClick={() =>
-                  executeLogin("obadiahv2@gmail.com", "Obadiah123")
-                }
-                className="flex flex-col items-center justify-center p-2 rounded-lg border border-gray-100 bg-gray-50/50 hover:bg-orange-50 hover:border-orange-200 transition-all group"
-              >
-                <ShoppingBag className="h-5 w-5 text-gray-400 group-hover:text-orange-600 mb-1" />
-                <span className="text-[10px] font-medium text-gray-600">
-                  Consumer
-                </span>
-              </button>
-              <button
-                onClick={() =>
-                  executeLogin("rider@medbox.com", "MedboxDemo123!")
-                }
-                className="flex flex-col items-center justify-center p-2 rounded-lg border border-gray-100 bg-gray-50/50 hover:bg-purple-50 hover:border-purple-200 transition-all group"
-              >
-                <Truck className="h-5 w-5 text-gray-400 group-hover:text-purple-600 mb-1" />
-                <span className="text-[10px] font-medium text-gray-600">
-                  Rider
-                </span>
-              </button>
+                {demoRoles.includes("ADMIN") && (
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => executeDemo("ADMIN")}
+                    className="flex flex-col items-center justify-center p-2 rounded-lg border border-gray-100 bg-gray-50/50 hover:bg-blue-50 hover:border-blue-200 transition-all group disabled:opacity-50"
+                  >
+                    <ShieldCheck className="h-5 w-5 text-gray-400 group-hover:text-blue-600 mb-1" />
+                    <span className="text-[10px] font-medium text-gray-600">
+                      Admin
+                    </span>
+                  </button>
+                )}
+                {demoRoles.includes("PHARMACY") && (
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => executeDemo("PHARMACY")}
+                    className="flex flex-col items-center justify-center p-2 rounded-lg border border-gray-100 bg-gray-50/50 hover:bg-emerald-50 hover:border-emerald-200 transition-all group disabled:opacity-50"
+                  >
+                    <Stethoscope className="h-5 w-5 text-gray-400 group-hover:text-emerald-600 mb-1" />
+                    <span className="text-[10px] font-medium text-gray-600">
+                      Pharmacy
+                    </span>
+                  </button>
+                )}
+                {demoRoles.includes("CONSUMER") && (
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => executeDemo("CONSUMER")}
+                    className="flex flex-col items-center justify-center p-2 rounded-lg border border-gray-100 bg-gray-50/50 hover:bg-orange-50 hover:border-orange-200 transition-all group disabled:opacity-50"
+                  >
+                    <ShoppingBag className="h-5 w-5 text-gray-400 group-hover:text-orange-600 mb-1" />
+                    <span className="text-[10px] font-medium text-gray-600">
+                      Consumer
+                    </span>
+                  </button>
+                )}
+                {demoRoles.includes("RIDER") && (
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => executeDemo("RIDER")}
+                    className="flex flex-col items-center justify-center p-2 rounded-lg border border-gray-100 bg-gray-50/50 hover:bg-purple-50 hover:border-purple-200 transition-all group disabled:opacity-50"
+                  >
+                    <Truck className="h-5 w-5 text-gray-400 group-hover:text-purple-600 mb-1" />
+                    <span className="text-[10px] font-medium text-gray-600">
+                      Rider
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </CardFooter>
       </Card>
     </div>

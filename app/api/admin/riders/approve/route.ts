@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+import { getVerifiedRole } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
@@ -8,7 +9,7 @@ import { cookies } from "next/headers";
 export async function POST(req: NextRequest) {
   try {
     const cookieStore = await cookies();
-    const userRole = cookieStore.get("user-role")?.value;
+    const userRole = (await getVerifiedRole());
 
     if (userRole !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -32,7 +33,9 @@ export async function POST(req: NextRequest) {
         },
       },
       include: {
-        user: true,
+        user: {
+          select: { id: true, name: true, email: true, phone: true, status: true },
+        },
       },
     });
 

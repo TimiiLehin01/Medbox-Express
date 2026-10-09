@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+import { getJwtSecret, getVerifiedRole } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
@@ -13,15 +14,13 @@ export async function GET(
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("auth-token")?.value;
-    const userRole = cookieStore.get("user-role")?.value;
+    const userRole = (await getVerifiedRole());
 
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const secret = new TextEncoder().encode(
-      process.env.JWT_SECRET || "your-secret-key",
-    );
+    const secret = getJwtSecret();
     const { payload } = await jwtVerify(token, secret);
     const userId = payload.userId as string;
 
@@ -151,15 +150,13 @@ export async function PATCH(
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("auth-token")?.value;
-    const userRole = cookieStore.get("user-role")?.value;
+    const userRole = (await getVerifiedRole());
 
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const secret = new TextEncoder().encode(
-      process.env.JWT_SECRET || "your-secret-key",
-    );
+    const secret = getJwtSecret();
     const { payload } = await jwtVerify(token, secret);
     const userId = payload.userId as string;
 
@@ -204,7 +201,9 @@ export async function PATCH(
       where: { id: orderId },
       data: { status },
       include: {
-        consumer: true,
+        consumer: {
+          select: { id: true, name: true, email: true, phone: true },
+        },
         pharmacy: {
           select: {
             id: true,

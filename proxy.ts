@@ -14,7 +14,7 @@ async function getRoleFromToken(token: string | undefined) {
   }
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;
   const token = req.cookies.get("auth-token")?.value;
 

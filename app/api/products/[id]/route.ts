@@ -2,6 +2,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+import { getJwtSecret, getVerifiedRole } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
@@ -52,16 +53,14 @@ export async function DELETE(
 
     const cookieStore = await cookies();
     const token = cookieStore.get("auth-token")?.value; // ✅ Changed to token
-    const userRole = cookieStore.get("user-role")?.value;
+    const userRole = (await getVerifiedRole());
 
     if (!token || userRole !== "PHARMACY") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // ✅ Decode JWT to get userId
-    const secret = new TextEncoder().encode(
-      process.env.JWT_SECRET || "your-secret-key"
-    );
+    const secret = getJwtSecret();
     const { payload } = await jwtVerify(token, secret);
     const userId = payload.userId as string;
 
@@ -115,16 +114,14 @@ export async function PUT(
 
     const cookieStore = await cookies();
     const token = cookieStore.get("auth-token")?.value; // ✅ Changed to token
-    const userRole = cookieStore.get("user-role")?.value;
+    const userRole = (await getVerifiedRole());
 
     if (!token || userRole !== "PHARMACY") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // ✅ Decode JWT to get userId
-    const secret = new TextEncoder().encode(
-      process.env.JWT_SECRET || "your-secret-key"
-    );
+    const secret = getJwtSecret();
     const { payload } = await jwtVerify(token, secret);
     const userId = payload.userId as string;
 
